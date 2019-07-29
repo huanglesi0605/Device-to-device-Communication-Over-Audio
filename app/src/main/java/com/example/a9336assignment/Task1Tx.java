@@ -11,7 +11,7 @@ import android.view.View;
 public class Task1Tx extends AppCompatActivity {
     private AudioTrack audioTrack;
     private int sampleRate;
-    int duration = 1;
+    int duration = 3;
     int sampleSize;
     int count = 0;
 
