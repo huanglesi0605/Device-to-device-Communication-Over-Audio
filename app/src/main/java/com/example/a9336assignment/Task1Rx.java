@@ -57,6 +57,7 @@ public class Task1Rx extends AppCompatActivity {
                 List<Short> data = new ArrayList<>();
                 while (numberOfShort < audioBuffer.length) {
                     int n = record.read(audioBuffer, 0, audioBuffer.length);
+                    /*
                     System.out.println("buffer");
                     for (int i=10000 ;i <10100;i++) {
                         if (i%10 == 0){
@@ -65,6 +66,7 @@ public class Task1Rx extends AppCompatActivity {
                         System.out.print(" "+audioBuffer[i]);
                     }
                     System.out.println();
+                    */
                     numberOfShort += n;
                     for (int i=0; i<n; i++){
                         data.add(audioBuffer[i]);
