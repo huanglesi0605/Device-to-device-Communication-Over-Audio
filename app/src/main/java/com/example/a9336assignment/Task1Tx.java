@@ -10,7 +10,7 @@ import android.view.View;
 
 public class Task1Tx extends AppCompatActivity {
     private AudioTrack audioTrack;
-    private int sampleRate = 20000;
+    private int sampleRate;
     int duration = 1;
     int sampleSize;
     int count = 0;
@@ -19,7 +19,7 @@ public class Task1Tx extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_task1_tx);
-
+        sampleRate = getIntent().getIntExtra("sample rate", 0);
         sampleSize = duration * sampleRate;
         audioTrack = new AudioTrack(AudioManager.STREAM_MUSIC,
                 sampleRate, AudioFormat.CHANNEL_OUT_MONO,
