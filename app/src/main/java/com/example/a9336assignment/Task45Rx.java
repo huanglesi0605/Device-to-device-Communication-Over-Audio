@@ -17,11 +17,13 @@ public class Task45Rx extends AppCompatActivity {
     public boolean stopListening;
     private int samplesPerBit = 10000;
     private int smallBlockSize = samplesPerBit/10;
-    private boolean synchronizing = true;
+    private boolean waiting = true;
     private int freq1 = 1000;  // frequency representing bit 1
     private int freq0 = 500; //frequency representing bit 0
     private Double magThreshold = 1E9;
     private List<Short> unusedData = new ArrayList<>();
+    private boolean messageStart = false;
+    public List<Integer> preamble = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -79,32 +81,78 @@ public class Task45Rx extends AppCompatActivity {
         if(data.size() == 0){
             return;
         }
-        if (synchronizing){
+        if (waiting) {
+            waitForSignal(data);
+        } else if (!messageStart){
             synchronize(data);
         } else {
             getData(data);
         }
     }
 
-    public void synchronize(List<Short> data){
+    public void waitForSignal(List<Short> data){
         unusedData.addAll(data);
         data = unusedData;
+        unusedData = new ArrayList<>();
         int last_small_bit = -1;
         int block = 0;
         for (block = 0; (block+1)*smallBlockSize <= data.size(); block++){
             List<Short> blockData = data.subList(block*smallBlockSize, (block+1)*smallBlockSize);
             double mag1 = runGoertzel(blockData,freq1);
             double mag0 = runGoertzel(blockData,freq0);
+            /*
             System.out.print(block);
             if (mag1 > magThreshold || mag0 > magThreshold) {
                 System.out.println(" " + mag1 + " " + mag0 + " " + (mag1 > mag0));
             }
+            */
+            if ((mag1 > magThreshold || mag0 > magThreshold) && mag1 > mag0) {
+                waiting = false;
+                synchronize(data.subList(block * smallBlockSize, data.size()));
+                break;
+            }
         }
-        if (block*smallBlockSize == data.size()){
-            unusedData = new ArrayList<>();
-        } else {
+        if (block*smallBlockSize < data.size()){
             unusedData = data.subList(block * smallBlockSize, data.size());
         }
+    }
+
+    public void synchronize(List<Short> data){
+        unusedData.addAll(data);
+        data = unusedData;
+        unusedData = new ArrayList<>();
+        int block = 0;
+        for (block = 0; (block+1)*samplesPerBit <= data.size(); block++){
+            List<Short> blockData = data.subList(block*samplesPerBit, (block+1)*samplesPerBit);
+            double mag1 = runGoertzel(blockData,freq1);
+            double mag0 = runGoertzel(blockData,freq0);
+            if (mag1 > mag0) {
+                preamble.add(1);
+            } else {
+                preamble.add(0);
+            }
+            if (preamble.size() == 8){
+                if (preambleCorrect()){
+                    messageStart = true;
+                    getData(data.subList(block*samplesPerBit, data.size()));
+                    System.out.println("hooray");
+                } else {
+                    waiting = true;
+                }
+            }
+        }
+        if (block*samplesPerBit < data.size()){
+            unusedData = data.subList(block * samplesPerBit, data.size());
+        }
+    }
+
+    public boolean preambleCorrect(){
+        for(int i=0; i<8; i++){
+            if (preamble.get(i) != (i+1)%2){
+                return false;
+            }
+        }
+        return true;
     }
 
     public void getData(List<Short> data){
