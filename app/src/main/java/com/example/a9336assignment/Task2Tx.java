@@ -29,8 +29,12 @@ public class Task2Tx extends AppCompatActivity {
 
     protected void onDestroy(){
         super.onDestroy();
-        audioTrack.stop();
-        audioTrack.release();
+        try {
+            audioTrack.stop();
+            audioTrack.release();
+        } catch (Exception e){
+
+        }
     }
 
     public void sendAudible(View view){

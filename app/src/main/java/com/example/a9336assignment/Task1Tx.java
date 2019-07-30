@@ -30,8 +30,12 @@ public class Task1Tx extends AppCompatActivity {
     @Override
     protected void onDestroy(){
         super.onDestroy();
-        audioTrack.stop();
-        audioTrack.release();
+        try {
+            audioTrack.stop();
+            audioTrack.release();
+        } catch (Exception e){
+
+        }
     }
 
     public void send(View view){
