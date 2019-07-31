@@ -3,13 +3,15 @@ package com.example.a9336assignment;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
+import android.support.design.widget.TextInputEditText;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
+import android.widget.TextView;
 
 public class Task45Tx extends AppCompatActivity {
-    private int freq1 = 1000;  // frequency representing bit 1
-    private int freq0 = 500; //frequency representing bit 0
+    private int freq1 = 1209;  // frequency representing bit 1
+    private int freq0 = 697; //frequency representing bit 0
     private int sampleRate;
     private int samplesPerBit = 10000;
     private int packetSize = 5;
@@ -27,7 +29,7 @@ public class Task45Tx extends AppCompatActivity {
         audioTrack = new AudioTrack(AudioManager.STREAM_MUSIC,
                 sampleRate, AudioFormat.CHANNEL_OUT_MONO,
                 AudioFormat.ENCODING_PCM_16BIT, sampleSize,
-                AudioTrack.MODE_STATIC);
+                AudioTrack.MODE_STREAM);
 
     }
 
@@ -43,27 +45,44 @@ public class Task45Tx extends AppCompatActivity {
     }
 
     public void onSendButtonClick(View view){
-        System.out.println("aaa");
-        byte b = (byte)0b10101011;
-        byte[] bytes = new byte[]{b};
-        send(bytes);
+        //System.out.println("aaa");
+        /*
+        byte preamble = (byte)0b10101011;
+        byte messageLength = (byte)10;
+        byte[] bytes = new byte[]{preamble, messageLength};
+        */
+        String text = ((TextInputEditText)findViewById(R.id.message_sent)).getText().toString();
+        send(createPacket(text));
+    }
+
+    public byte[] createPacket(String text){
+        int messageLength = text.length();
+        byte[] bytes = new byte[messageLength+2];
+        bytes[0] = (byte)0b10101011;
+        bytes[1] = (byte)messageLength;
+        for (int i=0; i<messageLength; i++){
+            bytes[i+2] = (byte)text.charAt(i);
+        }
+        return bytes;
     }
 
     public void send(byte[] bytes){
-        System.out.println("bbb");
+        //System.out.println("bbb");
         int sampleSize = 8 * bytes.length * samplesPerBit;
         short[] samples = createSamples(bytes);
         if (count > 0){
             audioTrack.stop();
             audioTrack.reloadStaticData();
         }
-        audioTrack.write(samples, 0, sampleSize);
+        System.out.println("samples length: "+samples.length);
+        System.out.println("sampleSize: "+sampleSize);
         audioTrack.play();
+        audioTrack.write(samples, 0, sampleSize);
         count++;
     }
 
     public short[] createSamples(byte[] bytes){
-        System.out.println("ccc");
+        //System.out.println("ccc");
         short[] samples = new short[8 * bytes.length * samplesPerBit];
         for (int i=0; i< bytes.length; i++){
             int[] binary = binarify(bytes[i]);
@@ -83,7 +102,7 @@ public class Task45Tx extends AppCompatActivity {
     }
 
     public static int[] binarify( byte ByteToCheck ) {
-        System.out.println("ddd");
+        //System.out.println("ddd");
         int[] binaryCode = new int[8];
         byte[] reference = new byte[]{ (byte) 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01 };
 
@@ -96,10 +115,10 @@ public class Task45Tx extends AppCompatActivity {
                 binaryCode[z] = 0;
             }
         }
-        System.out.println("eee");
+        //System.out.println("eee");
         for (int i=0; i<8; i++){
-            System.out.println("fff");
-            System.out.println(" "+binaryCode[i]);
+            //System.out.println("fff");
+            System.out.println(binaryCode[i]);
         }
         return binaryCode;
     }

@@ -18,12 +18,16 @@ public class Task45Rx extends AppCompatActivity {
     private int samplesPerBit = 10000;
     private int smallBlockSize = samplesPerBit/10;
     private boolean waiting = true;
-    private int freq1 = 1000;  // frequency representing bit 1
-    private int freq0 = 500; //frequency representing bit 0
-    private Double magThreshold = 1E9;
+    private int freq1 = 1209;  // frequency representing bit 1
+    private int freq0 = 697; //frequency representing bit 0
+    private Double magThreshold = 5E10;
     private List<Short> unusedData = new ArrayList<>();
-    private boolean messageStart = false;
-    public List<Integer> preamble = new ArrayList<>();
+    private boolean synced = false;
+    private List<Integer> preamble = new ArrayList<>();
+    private int messageLength = -1;
+    private String currentByte = "";
+    private int receivedBytes = 0;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -34,7 +38,6 @@ public class Task45Rx extends AppCompatActivity {
         int bufferSize = AudioRecord.getMinBufferSize(sampleRate,
                 AudioFormat.CHANNEL_IN_MONO,
                 AudioFormat.ENCODING_PCM_16BIT);
-        //System.out.println("minBufferSize "+bufferSize);
 
         if (bufferSize == AudioRecord.ERROR || bufferSize == AudioRecord.ERROR_BAD_VALUE) {
             bufferSize = sampleRate*2;
@@ -66,10 +69,12 @@ public class Task45Rx extends AppCompatActivity {
                         data.add(audioBuffer[i]);
                     }
                     processData(data);
+
                     c++;
-                    if (c > 2){
+                    if (c > 20){
                         break;
                     }
+
                 }
                 System.out.println("Recording stopped. Samples read: "+numberOfShort);
                 record.stop();
@@ -83,8 +88,6 @@ public class Task45Rx extends AppCompatActivity {
         }
         if (waiting) {
             waitForSignal(data);
-        } else if (!messageStart){
-            synchronize(data);
         } else {
             getData(data);
         }
@@ -96,8 +99,8 @@ public class Task45Rx extends AppCompatActivity {
         unusedData = new ArrayList<>();
         int last_small_bit = -1;
         int block = 0;
-        for (block = 0; (block+1)*smallBlockSize <= data.size(); block++){
-            List<Short> blockData = data.subList(block*smallBlockSize, (block+1)*smallBlockSize);
+        for (block = 0; (block+2)*smallBlockSize <= data.size(); block++){
+            List<Short> blockData = data.subList(block*smallBlockSize, (block+2)*smallBlockSize);
             double mag1 = runGoertzel(blockData,freq1);
             double mag0 = runGoertzel(blockData,freq0);
             /*
@@ -106,9 +109,13 @@ public class Task45Rx extends AppCompatActivity {
                 System.out.println(" " + mag1 + " " + mag0 + " " + (mag1 > mag0));
             }
             */
-            if ((mag1 > magThreshold || mag0 > magThreshold) && mag1 > mag0) {
+            if (mag1 > magThreshold &&
+                    mag1 > mag0 &&
+                    averageAmplitude(blockData) > 500 &&
+                    mag1 > runGoertzel(blockData,1150) &&
+                    mag1 > runGoertzel(blockData,1230)) {
                 waiting = false;
-                synchronize(data.subList(block * smallBlockSize, data.size()));
+                getData(data.subList(block * smallBlockSize, data.size()));
                 break;
             }
         }
@@ -117,7 +124,7 @@ public class Task45Rx extends AppCompatActivity {
         }
     }
 
-    public void synchronize(List<Short> data){
+    public void getData(List<Short> data){
         unusedData.addAll(data);
         data = unusedData;
         unusedData = new ArrayList<>();
@@ -126,19 +133,37 @@ public class Task45Rx extends AppCompatActivity {
             List<Short> blockData = data.subList(block*samplesPerBit, (block+1)*samplesPerBit);
             double mag1 = runGoertzel(blockData,freq1);
             double mag0 = runGoertzel(blockData,freq0);
+            //System.out.print(" "+averageAmplitude(blockData));
             if (mag1 > mag0) {
-                preamble.add(1);
+                currentByte += '1';
             } else {
-                preamble.add(0);
+                currentByte += '0';
             }
-            if (preamble.size() == 8){
-                if (preambleCorrect()){
-                    messageStart = true;
-                    getData(data.subList(block*samplesPerBit, data.size()));
-                    System.out.println("hooray");
+            if (currentByte.length() == 8){
+                System.out.println("\n"+currentByte);
+                //currentByte = "";
+
+                if (!synced){
+                    if (currentByte.equals("10101011")){
+                        synced = true;
+                        currentByte = "";
+                        System.out.println("synced!");
+                    } else {
+                        currentByte = currentByte.substring(1);
+                    }
                 } else {
-                    waiting = true;
+                    if (messageLength == -1){
+                        setMessageLength(currentByte);
+                    } else {
+
+                        receivedBytes += 1;
+                        if (receivedBytes == messageLength){
+                            stopListening = true;
+                        }
+                    }
+                    currentByte = "";
                 }
+
             }
         }
         if (block*samplesPerBit < data.size()){
@@ -146,17 +171,9 @@ public class Task45Rx extends AppCompatActivity {
         }
     }
 
-    public boolean preambleCorrect(){
-        for(int i=0; i<8; i++){
-            if (preamble.get(i) != (i+1)%2){
-                return false;
-            }
-        }
-        return true;
-    }
-
-    public void getData(List<Short> data){
-
+    public void setMessageLength(String bytes){
+        messageLength = Integer.valueOf(bytes,2);
+        System.out.println(messageLength);
     }
 
     public double runGoertzel(List<Short> data, int target_freq){
@@ -175,5 +192,13 @@ public class Task45Rx extends AppCompatActivity {
             q1 = q0;
         }
         return q1*q1 + q2*q2-q1*q2*coeff;
+    }
+
+    public double averageAmplitude(List<Short> data){
+        double sum = 0;
+        for (Short d: data){
+            sum += Math.abs(d);
+        }
+        return sum/data.size();
     }
 }
