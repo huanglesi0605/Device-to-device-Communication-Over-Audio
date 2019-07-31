@@ -6,6 +6,7 @@ import android.media.MediaRecorder;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
+import android.widget.TextView;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,10 +24,10 @@ public class Task45Rx extends AppCompatActivity {
     private Double magThreshold = 5E10;
     private List<Short> unusedData = new ArrayList<>();
     private boolean synced = false;
-    private List<Integer> preamble = new ArrayList<>();
     private int messageLength = -1;
     private String currentByte = "";
     private int receivedBytes = 0;
+    private String receivedMessage = "";
 
 
     @Override
@@ -69,7 +70,6 @@ public class Task45Rx extends AppCompatActivity {
                         data.add(audioBuffer[i]);
                     }
                     processData(data);
-
                     c++;
                     if (c > 20){
                         break;
@@ -78,6 +78,19 @@ public class Task45Rx extends AppCompatActivity {
                 }
                 System.out.println("Recording stopped. Samples read: "+numberOfShort);
                 record.stop();
+                if (receivedMessage.equals("")){
+                    ((TextView) findViewById(R.id.message_received)).setText("something wrong!");
+                } else {
+                    ((TextView) findViewById(R.id.message_received)).setText(receivedMessage);
+                }
+                receivedMessage = "";
+                waiting = true;
+                synced = false;
+                currentByte = "";
+                receivedBytes = 0;
+                messageLength = -1;
+                unusedData = new ArrayList<>();
+                stopListening = false;
             }
         }.run();
     }
@@ -155,7 +168,8 @@ public class Task45Rx extends AppCompatActivity {
                     if (messageLength == -1){
                         setMessageLength(currentByte);
                     } else {
-
+                        receivedMessage += (char)(int)Integer.valueOf(currentByte,2);
+                        System.out.println(receivedMessage);
                         receivedBytes += 1;
                         if (receivedBytes == messageLength){
                             stopListening = true;
@@ -163,7 +177,6 @@ public class Task45Rx extends AppCompatActivity {
                     }
                     currentByte = "";
                 }
-
             }
         }
         if (block*samplesPerBit < data.size()){
